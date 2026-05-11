@@ -31,7 +31,7 @@ export function Dashboard({ apps, onAddClick, onAppClick, onViewAll }: {
     <div>
       {/* Greeting */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 style={{ fontWeight: 800, marginBottom: 8, letterSpacing: "-0.02em" }} className="greeting-title">Good morning, Alex.</h1>
+        <h1 style={{ fontWeight: 800, marginBottom: 8, letterSpacing: "-0.02em" }} className="greeting-title">Good morning, Braven.</h1>
         <p style={{ fontSize: 15, color: "var(--text-secondary)", marginBottom: 28, lineHeight: 1.6 }}>
           You have {stats.interview} interviews scheduled this week. Your overall pipeline health is strong. Let&apos;s keep the momentum going.
         </p>

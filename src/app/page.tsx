@@ -121,9 +121,9 @@ export default function Home() {
               width: 36, height: 36, borderRadius: "50%", background: "#E5E7EB",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 14, fontWeight: 700, color: "var(--text-secondary)",
-            }}>AM</div>
+            }}>BH</div>
             <div>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>Alex Mercer</p>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>Braven Handoko</p>
               <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase" }}>Pro Plan</p>
             </div>
           </div>
@@ -157,7 +157,7 @@ export default function Home() {
               width: 32, height: 32, borderRadius: "50%", background: "var(--accent)",
               display: "flex", alignItems: "center", justifyContent: "center",
               color: "#fff", fontWeight: 700, fontSize: 12,
-            }}>AM</div>
+            }}>BH</div>
           </div>
         </header>
 
@@ -183,7 +183,7 @@ export default function Home() {
               width: 32, height: 32, borderRadius: "50%", background: "var(--accent)",
               display: "flex", alignItems: "center", justifyContent: "center",
               color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer",
-            }}>AM</div>
+            }}>BH</div>
           </div>
         </header>
 
