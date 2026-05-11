@@ -96,4 +96,4 @@ export interface AIRequest {
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
 
-export type ViewId = "dashboard" | "tracker" | "cv" | "interview" | "email";
+export type ViewId = "home" | "pipeline" | "ats" | "coach" | "outreach";

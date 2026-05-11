@@ -1,6 +1,6 @@
 "use client";
 import { motion, AnimatePresence } from "framer-motion";
-import { GlassCard, SectionHeader, LoadingSkeleton } from "@/components/ui";
+import { Card, SectionHeader, LoadingSkeleton, ScoreGauge } from "@/components/ui";
 import { MarkdownRenderer } from "@/components/markdown";
 import { InterviewMessage, InterviewPhase } from "@/lib/types";
 import { callAI } from "@/lib/utils";
@@ -24,7 +24,7 @@ function loadHistory(): InterviewSession[] {
 }
 
 function saveHistory(sessions: InterviewSession[]) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions.slice(0, 20))); // Keep last 20
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(sessions.slice(0, 20)));
 }
 
 export function InterviewCoach() {
@@ -62,11 +62,11 @@ export function InterviewCoach() {
   const startInterview = async () => {
     if (!position.trim()) return;
     setPhase("interview"); setLoading(true); setQNum(1); setViewingHistory(null); setShowHistory(false);
-    setMessages([{ role: "ai", content: `Baik, saya akan menjadi interviewer untuk posisi **${position}** di **${company || "perusahaan"}**. Mari kita mulai!\n\nSaya akan mengajukan 5 pertanyaan: 3 teknis dan 2 behavioral. Jawab sebaik mungkin.` }]);
+    setMessages([{ role: "ai", content: `Welcome! Thanks for taking the time to speak with me today about the **${position}** role at **${company || "our company"}**. To kick things off, could you walk me through a recent complex problem you solved, focusing specifically on how you balanced user needs with technical constraints?` }]);
     try {
       const q = await callAI("interview_start", { position, company, jobDesc, questionNumber: "1" });
       setMessages(p => [...p, { role: "ai", content: q }]);
-    } catch { setMessages(p => [...p, { role: "ai", content: "Maaf, gagal memuat pertanyaan. Coba mulai ulang." }]); }
+    } catch { setMessages(p => [...p, { role: "ai", content: "Sorry, failed to load question. Please restart." }]); }
     setLoading(false);
   };
 
@@ -93,17 +93,16 @@ export function InterviewCoach() {
         setMessages(p => [...p, { role: "ai", content: nextQuestion }]);
       } else {
         setPhase("evaluation");
-        setMessages(p => [...p, { role: "ai", content: "✅ Simulasi interview selesai! Saya sedang menyiapkan laporan akhir..." }]);
-        const evalData = newScores.map((sc, i) => `Q${i + 1}: skor ${sc}/10`).join(", ");
+        setMessages(p => [...p, { role: "ai", content: "✅ Interview simulation complete! Preparing final report..." }]);
+        const evalData = newScores.map((sc, i) => `Q${i + 1}: score ${sc}/10`).join(", ");
         const rep = await callAI("interview_report", { position, company, evaluations: evalData });
         setReport(rep);
         setPhase("report");
-        // Save to history
-        const finalMsgs = [...newMessages, { role: "ai" as const, content: "✅ Simulasi interview selesai!" }];
+        const finalMsgs = [...newMessages, { role: "ai" as const, content: "✅ Interview simulation complete!" }];
         saveSession(rep, newScores, finalMsgs);
       }
     } catch {
-      setMessages(p => [...p, { role: "ai", content: "Terjadi kesalahan. Coba kirim jawaban lagi." }]);
+      setMessages(p => [...p, { role: "ai", content: "Error occurred. Please try again." }]);
     }
     setLoading(false);
   };
@@ -125,68 +124,55 @@ export function InterviewCoach() {
   };
 
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 : 0;
-  const fmtDate = (d: string) => new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const currentScore = Math.round(avgScore * 10);
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-  // VIEWING A PAST SESSION
+  /* ── Chat Bubble Component ─────────────────── */
+  const ChatBubble = ({ msg }: { msg: InterviewMessage }) => (
+    <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 14 }}>
+      {msg.role === "ai" && (
+        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", marginRight: 10, flexShrink: 0, marginTop: 4 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+      )}
+      <div style={{
+        maxWidth: "72%", padding: "14px 18px", fontSize: 13, lineHeight: 1.7,
+        borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+        background: msg.role === "user" ? "var(--accent)" : "#F3F4F6",
+        color: msg.role === "user" ? "#fff" : "var(--text-primary)",
+      }}>
+        <MarkdownRenderer content={msg.content} className={msg.role === "user" ? "chat-user" : ""} />
+        {msg.score && (
+          <div style={{ marginTop: 8, padding: "4px 10px", background: `rgba(${msg.score >= 7 ? "16,185,129" : msg.score >= 5 ? "245,158,11" : "239,68,68"},0.12)`, borderRadius: 8, display: "inline-block", fontSize: 11, fontWeight: 700, color: msg.score >= 7 ? "#10B981" : msg.score >= 5 ? "#F59E0B" : "#EF4444" }}>
+            Score: {msg.score}/10
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // VIEWING PAST SESSION
   if (viewingHistory) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <SectionHeader icon="📜" title="Riwayat Interview" subtitle={`${viewingHistory.position} di ${viewingHistory.company || "Perusahaan"} — ${fmtDate(viewingHistory.createdAt)}`} />
+          <SectionHeader title="Session History" subtitle={`${viewingHistory.position} at ${viewingHistory.company || "Company"} — ${fmtDate(viewingHistory.createdAt)}`} />
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn-ghost" onClick={() => setViewingHistory(null)} style={{ fontSize: 12 }}>← Kembali</button>
+            <button className="btn-ghost" onClick={() => setViewingHistory(null)} style={{ fontSize: 12 }}>← Back</button>
             <button className="btn-primary" onClick={() => { setPosition(viewingHistory.position); setCompany(viewingHistory.company); setViewingHistory(null); }}
-              style={{ fontSize: 12, padding: "8px 14px" }}>🔄 Latihan Ulang</button>
+              style={{ fontSize: 12, padding: "8px 14px" }}>🔄 Practice Again</button>
           </div>
         </div>
-
-        {/* Score summary */}
-        <GlassCard style={{ marginBottom: 14 }}>
-          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <div style={{ textAlign: "center" }}>
-              <p style={{ fontSize: 28, fontWeight: 800, color: viewingHistory.avgScore >= 7 ? "#10B981" : viewingHistory.avgScore >= 5 ? "#F59E0B" : "#EF4444", margin: "0 0 2px" }}>{viewingHistory.avgScore}</p>
-              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>Rata-rata</p>
-            </div>
-            <div style={{ flex: 1, display: "flex", gap: 6 }}>
-              {viewingHistory.scores.map((s, i) => (
-                <div key={i} style={{ flex: 1, textAlign: "center", padding: "8px 4px", borderRadius: 8, background: `rgba(${s >= 7 ? "16,185,129" : s >= 5 ? "245,158,11" : "239,68,68"},0.1)`, border: `1px solid rgba(${s >= 7 ? "16,185,129" : s >= 5 ? "245,158,11" : "239,68,68"},0.2)` }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: s >= 7 ? "#10B981" : s >= 5 ? "#F59E0B" : "#EF4444" }}>{s}</p>
-                  <p style={{ margin: 0, fontSize: 9, color: "var(--text-muted)" }}>Q{i + 1}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </GlassCard>
-
-        {/* Chat replay */}
-        <GlassCard style={{ marginBottom: 14, padding: 0 }}>
+        <Card style={{ marginBottom: 14, padding: 0 }}>
           <div style={{ maxHeight: 400, overflowY: "auto", padding: 20 }}>
-            {viewingHistory.messages.map((msg, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 12 }}>
-                <div style={{
-                  maxWidth: "80%", padding: "12px 16px", borderRadius: 14, fontSize: 13, lineHeight: 1.7,
-                  background: msg.role === "user" ? "rgba(13,148,136,0.15)" : "rgba(255,255,255,0.04)",
-                  border: `1px solid ${msg.role === "user" ? "rgba(13,148,136,0.25)" : "var(--border)"}`,
-                }}>
-                  {msg.role === "ai" && <span style={{ fontSize: 10, color: "var(--accent-light)", fontWeight: 700, display: "block", marginBottom: 4 }}>CareerPath AI</span>}
-                  <MarkdownRenderer content={msg.content} />
-                  {msg.score && (
-                    <div style={{ marginTop: 8, padding: "4px 10px", background: `rgba(${msg.score >= 7 ? "16,185,129" : msg.score >= 5 ? "245,158,11" : "239,68,68"},0.12)`, borderRadius: 8, display: "inline-block", fontSize: 11, fontWeight: 700, color: msg.score >= 7 ? "#10B981" : msg.score >= 5 ? "#F59E0B" : "#EF4444" }}>
-                      Skor: {msg.score}/10
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+            {viewingHistory.messages.map((msg, i) => <ChatBubble key={i} msg={msg} />)}
           </div>
-        </GlassCard>
-
-        {/* Report */}
+        </Card>
         {viewingHistory.report && (
-          <GlassCard>
-            <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14, color: "var(--accent-light)" }}>📋 Laporan Akhir</p>
+          <Card>
+            <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14, color: "var(--accent-dark)" }}>Final Report</p>
             <MarkdownRenderer content={viewingHistory.report} />
-          </GlassCard>
+          </Card>
         )}
       </motion.div>
     );
@@ -197,59 +183,52 @@ export function InterviewCoach() {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <SectionHeader icon="🎙️" title="Interview Coach" subtitle="Simulasi interview AI. Jawab pertanyaan, dapatkan evaluasi real-time dengan metode STAR." />
+          <SectionHeader title="AI Interview Coach" subtitle="Live simulation with real-time feedback. Practice STAR method answers and get scored." />
           {history.length > 0 && (
-            <button className="btn-accent-outline" onClick={() => setShowHistory(!showHistory)} style={{ fontSize: 12 }}>
-              📜 Riwayat ({history.length})
+            <button className="btn-outline-accent" onClick={() => setShowHistory(!showHistory)} style={{ fontSize: 12 }}>
+              History ({history.length})
             </button>
           )}
         </div>
 
-        {/* History Panel */}
         <AnimatePresence>
           {showHistory && history.length > 0 && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} style={{ overflow: "hidden", marginBottom: 14 }}>
-              <GlassCard>
-                <p style={{ margin: "0 0 12px", fontWeight: 700, fontSize: 14 }}>📜 Riwayat Interview</p>
+              <Card>
+                <p style={{ margin: "0 0 12px", fontWeight: 700, fontSize: 14 }}>Session History</p>
                 {history.map((s, i) => (
-                  <div key={s.id} style={{
-                    display: "flex", alignItems: "center", gap: 12, padding: "10px 0",
-                    borderTop: i > 0 ? "1px solid var(--border)" : "none",
-                  }}>
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
                     <div style={{
                       width: 40, height: 40, borderRadius: 10,
-                      background: `rgba(${s.avgScore >= 7 ? "16,185,129" : s.avgScore >= 5 ? "245,158,11" : "239,68,68"},0.12)`,
+                      background: `rgba(${s.avgScore >= 7 ? "16,185,129" : s.avgScore >= 5 ? "245,158,11" : "239,68,68"},0.1)`,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontWeight: 800, fontSize: 14,
                       color: s.avgScore >= 7 ? "#10B981" : s.avgScore >= 5 ? "#F59E0B" : "#EF4444",
                     }}>{s.avgScore}</div>
                     <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => viewSession(s)}>
                       <p className="truncate" style={{ margin: "0 0 2px", fontWeight: 600, fontSize: 13 }}>{s.position}</p>
-                      <p style={{ margin: 0, fontSize: 11, color: "var(--text-muted)" }}>{s.company || "Perusahaan"} · {fmtDate(s.createdAt)}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: "var(--text-muted)" }}>{s.company || "Company"} · {fmtDate(s.createdAt)}</p>
                     </div>
-                    <button onClick={() => viewSession(s)} className="btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }}>Lihat</button>
+                    <button onClick={() => viewSession(s)} className="btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }}>View</button>
                     <button onClick={() => deleteSession(s.id)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 14, padding: "4px" }}>✕</button>
                   </div>
                 ))}
-              </GlassCard>
+              </Card>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <GlassCard style={{ maxWidth: 500 }}>
-          <label className="label-text">Posisi yang Dilamar *</label>
-          <input className="input-glass" value={position} onChange={e => setPosition(e.target.value)} placeholder="Frontend Developer, Data Analyst..." style={{ marginBottom: 14 }} />
-          <label className="label-text">Nama Perusahaan</label>
-          <input className="input-glass" value={company} onChange={e => setCompany(e.target.value)} placeholder="Gojek, Tokopedia..." style={{ marginBottom: 14 }} />
-          <label className="label-text">Deskripsi Pekerjaan <span style={{ fontWeight: 400, textTransform: "none", color: "var(--text-muted)" }}>(opsional)</span></label>
-          <textarea className="input-glass" value={jobDesc} onChange={e => setJobDesc(e.target.value)} rows={3} placeholder="Paste job desc untuk pertanyaan lebih relevan..." style={{ marginBottom: 20 }} />
+        <Card style={{ maxWidth: 500 }}>
+          <label className="label-text">Position *</label>
+          <input className="input-field" value={position} onChange={e => setPosition(e.target.value)} placeholder="Senior Product Designer, Frontend Developer..." style={{ marginBottom: 14 }} />
+          <label className="label-text">Company</label>
+          <input className="input-field" value={company} onChange={e => setCompany(e.target.value)} placeholder="TechCorp, Stripe, Gojek..." style={{ marginBottom: 14 }} />
+          <label className="label-text">Job Description <span style={{ fontWeight: 400, textTransform: "none", color: "var(--text-muted)" }}>(optional)</span></label>
+          <textarea className="input-field" value={jobDesc} onChange={e => setJobDesc(e.target.value)} rows={3} placeholder="Paste job description for more relevant questions..." style={{ marginBottom: 20 }} />
           <button className="btn-primary" onClick={startInterview} disabled={!position.trim()} style={{ width: "100%", padding: 14, fontSize: 15 }}>
-            🚀 Mulai Simulasi Interview
+            Start Simulation
           </button>
-          <div style={{ marginTop: 16, padding: 14, background: "rgba(255,255,255,0.02)", borderRadius: 10, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.7 }}>
-            <strong style={{ color: "var(--text-secondary)" }}>Format:</strong> 3 pertanyaan teknis + 2 pertanyaan behavioral. Setiap jawaban dinilai 1-10 menggunakan metode STAR.
-          </div>
-        </GlassCard>
+        </Card>
       </motion.div>
     );
   }
@@ -257,66 +236,116 @@ export function InterviewCoach() {
   // INTERVIEW + REPORT
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <SectionHeader icon="🎙️" title="Interview Coach" subtitle={phase === "report" ? "Laporan akhir simulasi" : `Pertanyaan ${Math.min(qNum, 5)} dari 5`} />
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {scores.length > 0 && (
-            <span style={{ fontSize: 12, color: "var(--accent-light)", fontWeight: 600, background: "rgba(13,148,136,0.1)", padding: "4px 12px", borderRadius: 20 }}>
-              Rata-rata: {avgScore}/10
-            </span>
-          )}
-          <button className="btn-ghost" onClick={reset} style={{ fontSize: 12 }}>↩ Mulai Ulang</button>
+      <div className="responsive-grid-sidebar">
+        {/* Left - Chat */}
+        <div>
+          {/* Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div>
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Live Simulation</p>
+              <h2 style={{ margin: "4px 0 0", fontSize: 18, fontWeight: 700 }}>{position} at {company || "Company"}</h2>
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-muted)" }}>Interview Started · {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>
+            </div>
+            <button onClick={reset} style={{
+              padding: "8px 16px", borderRadius: 20, background: "#FEF2F2", color: "#DC2626",
+              border: "1px solid #FCA5A5", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
+              display: "flex", alignItems: "center", gap: 6,
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#DC2626" }} />
+              End Session
+            </button>
+          </div>
+
+          {/* Chat */}
+          <Card style={{ padding: 0, marginBottom: phase === "report" ? 14 : 0 }}>
+            <div ref={chatRef} style={{ maxHeight: 420, overflowY: "auto", padding: 20 }}>
+              <AnimatePresence>
+                {messages.map((msg, i) => (
+                  <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                    <ChatBubble msg={msg} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {loading && (
+                <div style={{ display: "flex", gap: 6, padding: "10px 0" }}>
+                  {[0, 1, 2].map(i => (
+                    <motion.div key={i} animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+                      style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--accent)" }} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Input */}
+            {phase === "interview" && (
+              <div style={{ borderTop: "1px solid var(--border)", padding: 16, display: "flex", gap: 10, alignItems: "center" }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+                </div>
+                <input className="input-field" value={userInput} onChange={e => setUserInput(e.target.value)}
+                  placeholder="Type your response or use voice..."
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitAnswer(); }}}
+                  style={{ flex: 1 }} />
+                <button className="btn-primary" onClick={submitAnswer} disabled={loading || !userInput.trim()}
+                  style={{ width: 40, height: 40, borderRadius: "50%", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Right - Score & Insights */}
+        <div>
+          {/* Current Score */}
+          <Card style={{ marginBottom: 14, textAlign: "center", padding: 24 }}>
+            <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Current Score</p>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>Based on STAR method and clarity.</p>
+            <ScoreGauge score={currentScore || 85} size={110} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 16 }}>
+              <div style={{ padding: "8px", background: "#F9FAFB", borderRadius: 8, textAlign: "center" }}>
+                <p style={{ margin: 0, fontSize: 11, color: "var(--text-muted)" }}>Structure</p>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "var(--accent-dark)" }}>Great</p>
+              </div>
+              <div style={{ padding: "8px", background: "#F9FAFB", borderRadius: 8, textAlign: "center" }}>
+                <p style={{ margin: 0, fontSize: 11, color: "var(--text-muted)" }}>Relevance</p>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "var(--accent-dark)" }}>Good</p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Live Insights */}
+          <Card style={{ padding: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>Live Insights</p>
+            </div>
+            {scores.length > 0 ? scores.map((s, i) => (
+              <div key={i} style={{ padding: "10px 12px", background: s >= 7 ? "#F0FDF4" : "#FFFBEB", borderRadius: 8, marginBottom: 8 }}>
+                <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 700, color: s >= 7 ? "#059669" : "#D97706" }}>
+                  {s >= 7 ? "✓ Strong Answer" : "⚠ Needs Improvement"}
+                </p>
+                <p style={{ margin: 0, fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                  Q{i + 1}: Score {s}/10
+                </p>
+              </div>
+            )) : (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6 }}>
+                Insights will appear as you answer questions. Focus on using the STAR method for behavioral questions.
+              </p>
+            )}
+          </Card>
         </div>
       </div>
 
-      {/* Chat Area */}
-      <GlassCard style={{ marginBottom: phase === "report" ? 14 : 0, padding: 0 }}>
-        <div ref={chatRef} style={{ maxHeight: 420, overflowY: "auto", padding: 20 }}>
-          <AnimatePresence>
-            {messages.map((msg, i) => (
-              <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 12 }}>
-                <div style={{
-                  maxWidth: "80%", padding: "12px 16px", borderRadius: 14, fontSize: 13, lineHeight: 1.7,
-                  background: msg.role === "user" ? "rgba(13,148,136,0.15)" : "rgba(255,255,255,0.04)",
-                  border: `1px solid ${msg.role === "user" ? "rgba(13,148,136,0.25)" : "var(--border)"}`,
-                }}>
-                  {msg.role === "ai" && <span style={{ fontSize: 10, color: "var(--accent-light)", fontWeight: 700, display: "block", marginBottom: 4 }}>CareerPath AI</span>}
-                  <MarkdownRenderer content={msg.content} />
-                  {msg.score && (
-                    <div style={{ marginTop: 8, padding: "4px 10px", background: `rgba(${msg.score >= 7 ? "16,185,129" : msg.score >= 5 ? "245,158,11" : "239,68,68"},0.12)`, borderRadius: 8, display: "inline-block", fontSize: 11, fontWeight: 700, color: msg.score >= 7 ? "#10B981" : msg.score >= 5 ? "#F59E0B" : "#EF4444" }}>
-                      Skor: {msg.score}/10
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-          {loading && <LoadingSkeleton lines={3} />}
-        </div>
-
-        {/* Input */}
-        {phase === "interview" && (
-          <div style={{ borderTop: "1px solid var(--border)", padding: 16, display: "flex", gap: 10 }}>
-            <textarea className="input-glass" value={userInput} onChange={e => setUserInput(e.target.value)} rows={2}
-              placeholder="Ketik jawaban kamu di sini..."
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitAnswer(); }}}
-              style={{ flex: 1, minHeight: 44 }} />
-            <button className="btn-primary" onClick={submitAnswer} disabled={loading || !userInput.trim()} style={{ alignSelf: "flex-end", padding: "10px 20px" }}>
-              {loading ? "⟳" : "Kirim →"}
-            </button>
-          </div>
-        )}
-      </GlassCard>
-
       {/* Report */}
       {phase === "report" && report && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <GlassCard>
-            <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14, color: "var(--accent-light)" }}>📋 Laporan Akhir Interview</p>
-            <p style={{ margin: "0 0 14px", fontSize: 12, color: "var(--text-muted)" }}>Posisi: {position} di {company || "Perusahaan"}</p>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ marginTop: 16 }}>
+          <Card>
+            <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 16, color: "var(--accent-dark)" }}>Final Interview Report</p>
+            <p style={{ margin: "0 0 14px", fontSize: 12, color: "var(--text-muted)" }}>Position: {position} at {company || "Company"}</p>
             <MarkdownRenderer content={report} />
-          </GlassCard>
+          </Card>
         </motion.div>
       )}
     </motion.div>

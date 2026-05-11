@@ -1,6 +1,6 @@
 "use client";
 import { motion, AnimatePresence } from "framer-motion";
-import { GlassCard, SectionHeader, LoadingSkeleton } from "@/components/ui";
+import { Card, SectionHeader, LoadingSkeleton } from "@/components/ui";
 import { MarkdownRenderer } from "@/components/markdown";
 import { EmailTone, EmailType } from "@/lib/types";
 import { callAI } from "@/lib/utils";
@@ -24,8 +24,15 @@ function loadEmailHistory(): EmailEntry[] {
 }
 
 function saveEmailHistory(entries: EmailEntry[]) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, 30))); // Keep last 30
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, 30)));
 }
+
+const TONE_OPTIONS = [
+  { id: "formal", label: "Confident & Direct" },
+  { id: "semiformal", label: "Curious & Humble" },
+];
+
+const CREATIVE_CHIPS = ["Data-Driven", "Creative Flair"];
 
 export function ColdEmailGenerator() {
   const [hrdName, setHrdName] = useState("");
@@ -50,14 +57,13 @@ export function ColdEmailGenerator() {
     try {
       const text = await callAI("cold_email", { hrdName, company, position, context, tone, type, daysSince });
       setResult(text);
-      // Auto-save to history
       const entry: EmailEntry = {
         id: Date.now(), type, company, position, hrdName, tone, result: text, createdAt: new Date().toISOString(),
       };
       const updated = [entry, ...history];
       setHistory(updated);
       saveEmailHistory(updated);
-    } catch { setResult("Terjadi kesalahan. Coba lagi."); }
+    } catch { setResult("An error occurred. Please try again."); }
     setLoading(false);
   };
 
@@ -74,45 +80,45 @@ export function ColdEmailGenerator() {
     if (viewingEntry?.id === id) setViewingEntry(null);
   };
 
-  const typeOptions: { id: EmailType; label: string; icon: string }[] = [
-    { id: "cold_email", label: "Cold Email", icon: "✉️" },
-    { id: "linkedin", label: "LinkedIn", icon: "💼" },
-    { id: "followup", label: "Follow-up", icon: "🔄" },
+  const typeOptions: { id: EmailType; label: string }[] = [
+    { id: "cold_email", label: "Direct Application Follow-up" },
+    { id: "linkedin", label: "LinkedIn Connection" },
+    { id: "followup", label: "Follow-up Email" },
   ];
 
   const typeLabel = (t: EmailType) => t === "linkedin" ? "LinkedIn" : t === "followup" ? "Follow-up" : "Cold Email";
-  const fmtDate = (d: string) => new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
   const displayResult = viewingEntry ? viewingEntry.result : result;
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <SectionHeader icon="✉️" title="Cold Email & LinkedIn Generator" subtitle="Buat pesan outreach yang personal dan persuasif untuk HRD atau recruiter." />
-        {history.length > 0 && (
-          <button className="btn-accent-outline" onClick={() => setShowHistory(!showHistory)} style={{ fontSize: 12 }}>
-            📜 Riwayat ({history.length})
-          </button>
-        )}
+      {/* Title */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Cold Email Generator</h1>
+        <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          Craft high-agency outreach messages tailored to your specific role and target company. Our AI ensures a professional, yet striking tone.
+        </p>
       </div>
 
-      {/* History Panel */}
+      {/* History Toggle */}
+      {history.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <button className="btn-outline-accent" onClick={() => setShowHistory(!showHistory)} style={{ fontSize: 12 }}>
+            History ({history.length})
+          </button>
+        </div>
+      )}
+
       <AnimatePresence>
         {showHistory && history.length > 0 && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} style={{ overflow: "hidden", marginBottom: 14 }}>
-            <GlassCard>
-              <p style={{ margin: "0 0 12px", fontWeight: 700, fontSize: 14 }}>📜 Riwayat Email</p>
+            <Card>
+              <p style={{ margin: "0 0 12px", fontWeight: 700, fontSize: 14 }}>Email History</p>
               {history.map((entry, i) => (
-                <div key={entry.id} style={{
-                  display: "flex", alignItems: "center", gap: 12, padding: "10px 0",
-                  borderTop: i > 0 ? "1px solid var(--border)" : "none",
-                }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 8,
-                    background: "rgba(13,148,136,0.1)", display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 16,
-                  }}>
-                    {entry.type === "linkedin" ? "💼" : entry.type === "followup" ? "🔄" : "✉️"}
+                <div key={entry.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "#F0FDF9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "var(--accent-dark)" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                   </div>
                   <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => { setViewingEntry(entry); setShowHistory(false); }}>
                     <p className="truncate" style={{ margin: "0 0 2px", fontWeight: 600, fontSize: 13 }}>
@@ -126,113 +132,96 @@ export function ColdEmailGenerator() {
                   <button onClick={() => deleteEntry(entry.id)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 14, padding: "4px" }}>✕</button>
                 </div>
               ))}
-            </GlassCard>
+            </Card>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div style={{ display: "grid", gridTemplateColumns: displayResult || loading ? "1fr 1fr" : "1fr", gap: 14 }}>
-        {/* Input Panel */}
+      <div className={displayResult || loading ? "responsive-grid-sidebar-left" : ""}>
+        {/* Left - Parameters */}
         <div>
-          {/* Type Selector */}
-          <GlassCard style={{ marginBottom: 14 }}>
-            <label className="label-text">Tipe Pesan</label>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-              {typeOptions.map(t => (
-                <button key={t.id} onClick={() => setType(t.id)} style={{
-                  padding: "12px", borderRadius: 10, textAlign: "center", fontFamily: "var(--font)", cursor: "pointer",
-                  border: `1.5px solid ${type === t.id ? "var(--accent)" : "var(--border)"}`,
-                  background: type === t.id ? "rgba(13,148,136,0.08)" : "transparent",
-                  transition: "all 0.2s ease",
-                }}>
-                  <span style={{ fontSize: 20, display: "block", marginBottom: 4 }}>{t.icon}</span>
-                  <span style={{ fontSize: 12, fontWeight: type === t.id ? 700 : 400, color: type === t.id ? "var(--accent-light)" : "var(--text-muted)" }}>{t.label}</span>
-                </button>
-              ))}
-            </div>
-          </GlassCard>
+          <Card>
+            <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9"/></svg>
+              Parameters
+            </h3>
 
-          <GlassCard style={{ marginBottom: 14 }}>
-            <label className="label-text">Nama HRD / Recruiter <span style={{ fontWeight: 400, textTransform: "none", color: "var(--text-muted)" }}>(opsional)</span></label>
-            <input className="input-glass" value={hrdName} onChange={e => setHrdName(e.target.value)} placeholder="Budi Santoso" style={{ marginBottom: 14 }} />
+            <label className="label-text">Message Intent</label>
+            <select className="input-field" value={type} onChange={e => setType(e.target.value as EmailType)} style={{ marginBottom: 16 }}>
+              {typeOptions.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
 
-            <label className="label-text">Nama Perusahaan *</label>
-            <input className="input-glass" value={company} onChange={e => setCompany(e.target.value)} placeholder="Gojek, Tokopedia..." style={{ marginBottom: 14 }} />
+            <label className="label-text">Target Role / Context</label>
+            <input className="input-field" value={position} onChange={e => setPosition(e.target.value)} placeholder="e.g. Senior Product Designer" style={{ marginBottom: 16 }} />
 
-            <label className="label-text">Posisi yang Diincar *</label>
-            <input className="input-glass" value={position} onChange={e => setPosition(e.target.value)} placeholder="Frontend Developer" style={{ marginBottom: 14 }} />
-
-            <label className="label-text">Kenapa Tertarik? <span style={{ fontWeight: 400, textTransform: "none", color: "var(--text-muted)" }}>(konteks untuk personalisasi)</span></label>
-            <textarea className="input-glass" value={context} onChange={e => setContext(e.target.value)} rows={3} placeholder="Saya tertarik karena produk GoFood yang membantu UMKM..." style={{ marginBottom: 14 }} />
+            <label className="label-text">Company</label>
+            <input className="input-field" value={company} onChange={e => setCompany(e.target.value)} placeholder="e.g. Stripe, TechCorp..." style={{ marginBottom: 16 }} />
 
             {type === "followup" && (
               <>
-                <label className="label-text">Berapa Hari Sejak Melamar?</label>
-                <input className="input-glass" type="number" value={daysSince} onChange={e => setDaysSince(e.target.value)} style={{ marginBottom: 14 }} />
+                <label className="label-text">Days Since Application</label>
+                <input className="input-field" type="number" value={daysSince} onChange={e => setDaysSince(e.target.value)} style={{ marginBottom: 16 }} />
               </>
             )}
 
-            {/* Tone */}
-            <label className="label-text">Nada Pesan</label>
-            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-              {(["formal", "semiformal"] as EmailTone[]).map(t => (
-                <button key={t} onClick={() => setTone(t)} style={{
-                  flex: 1, padding: "8px 14px", borderRadius: 8, fontSize: 13, fontFamily: "var(--font)", cursor: "pointer",
-                  border: `1px solid ${tone === t ? "var(--accent)" : "var(--border)"}`,
-                  background: tone === t ? "rgba(13,148,136,0.08)" : "transparent",
-                  color: tone === t ? "var(--accent-light)" : "var(--text-muted)", fontWeight: tone === t ? 600 : 400,
-                }}>
-                  {t === "formal" ? "🏢 Formal" : "🤝 Semi-formal"}
+            <label className="label-text">Professional Tone</label>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+              {TONE_OPTIONS.map(t => (
+                <button key={t.id} onClick={() => setTone(t.id as EmailTone)}
+                  className={`chip ${tone === t.id ? "active" : ""}`}>
+                  {t.label}
                 </button>
               ))}
+              {CREATIVE_CHIPS.map(label => (
+                <button key={label} className="chip">{label}</button>
+              ))}
             </div>
-          </GlassCard>
 
-          <button className="btn-primary" onClick={generate} disabled={loading || !company.trim() || !position.trim()}
-            style={{ width: "100%", padding: 14, fontSize: 15 }}>
-            {loading ? "⟳ Membuat draft..." : "✨ Generate Pesan"}
-          </button>
+            <button className="btn-primary" onClick={generate} disabled={loading || !company.trim() || !position.trim()}
+              style={{ width: "100%", padding: 14, fontSize: 15, borderRadius: 10 }}>
+              {loading ? "⟳ Generating..." : "Generate Draft"}
+            </button>
+          </Card>
         </div>
 
-        {/* Result Panel */}
+        {/* Right - Result */}
         {(displayResult || loading) && (
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} key={viewingEntry ? viewingEntry.id : "current"}>
-            <GlassCard>
-              {loading ? <LoadingSkeleton lines={8} /> : (
+            <Card>
+              {loading ? <LoadingSkeleton lines={10} /> : (
                 <>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                    <div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent-light)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                        {viewingEntry ? typeLabel(viewingEntry.type) : typeLabel(type)} Generated
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-dark)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        AI Draft Ready
                       </span>
                       {viewingEntry && (
-                        <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--text-muted)" }}>
-                          {fmtDate(viewingEntry.createdAt)} · {viewingEntry.company}
-                        </p>
+                        <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8 }}>{fmtDate(viewingEntry.createdAt)}</span>
                       )}
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button className="btn-accent-outline" onClick={() => copyToClipboard(displayResult)} style={{ fontSize: 12, padding: "6px 12px" }}>
-                        {copied ? "✓ Tersalin!" : "📋 Salin"}
+                      <button className="btn-outline-accent" onClick={() => copyToClipboard(displayResult)} style={{ fontSize: 12, padding: "6px 14px" }}>
+                        {copied ? "✓ Copied!" : "Copy"}
                       </button>
                       {!viewingEntry && (
-                        <button className="btn-ghost" onClick={generate} style={{ fontSize: 12, padding: "6px 12px" }}>
-                          🔄 Regenerate
+                        <button className="btn-ghost" onClick={generate} style={{ fontSize: 12, padding: "6px 14px" }}>
+                          Regenerate
                         </button>
                       )}
                       {viewingEntry && (
-                        <button className="btn-ghost" onClick={() => setViewingEntry(null)} style={{ fontSize: 12, padding: "6px 12px" }}>
-                          ← Kembali
+                        <button className="btn-ghost" onClick={() => setViewingEntry(null)} style={{ fontSize: 12, padding: "6px 14px" }}>
+                          ← Back
                         </button>
                       )}
                     </div>
                   </div>
-                  <div style={{ padding: 16, background: "rgba(255,255,255,0.02)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                  <div style={{ padding: 20, background: "#F9FDFB", borderRadius: 10, border: "1px solid var(--border)" }}>
                     <MarkdownRenderer content={displayResult} />
                   </div>
                 </>
               )}
-            </GlassCard>
+            </Card>
           </motion.div>
         )}
       </div>

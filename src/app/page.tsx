@@ -7,17 +7,26 @@ import { Dashboard, AddModal, AppList, AppDetail } from "@/components/tracker";
 import { CVOptimizer } from "@/components/cv-optimizer";
 import { InterviewCoach } from "@/components/interview-coach";
 import { ColdEmailGenerator } from "@/components/cold-email";
+import { Icons } from "@/components/ui";
 
-const NAV_ITEMS: { id: ViewId; icon: string; label: string }[] = [
-  { id: "dashboard", icon: "📊", label: "Dashboard" },
-  { id: "tracker", icon: "📋", label: "Lamaran" },
-  { id: "cv", icon: "📄", label: "CV Optimizer" },
-  { id: "interview", icon: "🎙️", label: "Interview" },
-  { id: "email", icon: "✉️", label: "Cold Email" },
+const NAV_ITEMS: { id: ViewId; icon: keyof typeof Icons; label: string }[] = [
+  { id: "home", icon: "home", label: "Home" },
+  { id: "pipeline", icon: "pipeline", label: "Pipeline" },
+  { id: "ats", icon: "ats", label: "ATS" },
+  { id: "coach", icon: "coach", label: "Coach" },
+  { id: "outreach", icon: "outreach", label: "Outreach" },
+];
+
+const TOP_TABS: { id: ViewId; label: string }[] = [
+  { id: "home", label: "Dashboard" },
+  { id: "pipeline", label: "Tracker" },
+  { id: "ats", label: "Optimizer" },
+  { id: "coach", label: "Coach" },
+  { id: "outreach", label: "Generator" },
 ];
 
 export default function Home() {
-  const [view, setView] = useState<ViewId>("dashboard");
+  const [view, setView] = useState<ViewId>("home");
   const [apps, setApps] = useState<JobApplication[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [selectedApp, setSelectedApp] = useState<JobApplication | null>(null);
@@ -36,7 +45,7 @@ export default function Home() {
     const newApp: JobApplication = { ...data, id: Date.now(), createdAt: new Date().toISOString() };
     persist([newApp, ...apps]);
     setShowAdd(false);
-    setView("tracker");
+    setView("pipeline");
   };
 
   const updateApp = (id: number, patch: Partial<JobApplication>) => {
@@ -56,100 +65,165 @@ export default function Home() {
     setShowDetail(true);
   };
 
+  const switchView = (id: ViewId) => {
+    setView(id);
+    setShowDetail(false);
+    setSelectedApp(null);
+  };
+
   if (!mounted) return null;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", position: "relative", zIndex: 1 }}>
-      {/* Sidebar */}
-      <aside style={{
-        width: 240, flexShrink: 0, borderRight: "1px solid var(--border)",
-        background: "rgba(6,11,24,0.8)", backdropFilter: "blur(20px)",
-        display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh",
-      }}>
-        {/* Logo */}
-        <div style={{ padding: "20px 18px", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 10,
-              background: "var(--gradient-accent)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "#fff", fontWeight: 800, fontSize: 16,
-              boxShadow: "var(--shadow-glow)",
-            }}>J</div>
-            <div>
-              <span style={{ fontWeight: 800, fontSize: 16 }}>JobTrek</span>
-              <span style={{
-                display: "block", fontSize: 10, fontWeight: 600, color: "var(--accent-light)",
-                letterSpacing: "0.05em",
-              }}>AI Career Companion</span>
-            </div>
+    <div style={{ display: "flex", minHeight: "100vh" }}>
+      {/* ── Desktop Sidebar ──────────────────── */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#fff", fontWeight: 800, fontSize: 17,
+          }}>J</div>
+          <div>
+            <span style={{ fontWeight: 800, fontSize: 16, color: "var(--text-primary)", display: "block", lineHeight: 1.2 }}>JobTrek</span>
+            <span style={{ fontSize: 9, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Career Intelligence</span>
           </div>
         </div>
 
-        {/* Nav */}
-        <nav style={{ padding: "12px 10px", flex: 1 }}>
+        <div style={{ padding: "4px 12px 12px" }}>
+          <button className="btn-primary" onClick={() => setShowAdd(true)}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 16px", borderRadius: 8, fontSize: 13 }}>
+            {Icons.plus} New Application
+          </button>
+        </div>
+
+        <nav className="sidebar-nav">
           {NAV_ITEMS.map(item => {
             const active = view === item.id && !showDetail;
             return (
-              <button key={item.id} onClick={() => { setView(item.id); setShowDetail(false); setSelectedApp(null); }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10, width: "100%",
-                  padding: "10px 14px", borderRadius: 8, fontSize: 14, fontWeight: active ? 600 : 400,
-                  color: active ? "var(--accent-light)" : "var(--text-secondary)",
-                  background: active ? "rgba(13,148,136,0.1)" : "transparent",
-                  border: "none", cursor: "pointer", fontFamily: "var(--font)",
-                  textAlign: "left", marginBottom: 4, transition: "all 0.2s ease",
-                  position: "relative",
-                }}>
-                {active && (
-                  <motion.div layoutId="nav-indicator" style={{
-                    position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
-                    width: 3, height: 20, background: "var(--accent)", borderRadius: "0 3px 3px 0",
-                  }} />
-                )}
-                <span style={{ fontSize: 18 }}>{item.icon}</span>
+              <button key={item.id} onClick={() => switchView(item.id)}
+                className={`nav-item ${active ? "active" : ""}`}>
+                <span style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>{Icons[item.icon]}</span>
                 {item.label}
-                {item.id === "tracker" && apps.length > 0 && (
-                  <span style={{
-                    marginLeft: "auto", fontSize: 11, fontWeight: 600,
-                    background: "rgba(13,148,136,0.15)", color: "var(--accent-light)",
-                    padding: "2px 8px", borderRadius: 10,
-                  }}>{apps.length}</span>
-                )}
               </button>
             );
           })}
         </nav>
 
-        {/* Add Button */}
-        <div style={{ padding: "12px 14px", borderTop: "1px solid var(--border)" }}>
-          <button className="btn-primary" onClick={() => setShowAdd(true)}
-            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: 12 }}>
-            <span style={{ fontSize: 16 }}>+</span> Tambah Lamaran
+        <div style={{ padding: "8px 12px 16px", borderTop: "1px solid var(--border)" }}>
+          <button className="nav-item" style={{ fontSize: 13 }}>
+            <span style={{ display: "flex", alignItems: "center" }}>{Icons.support}</span> Support
           </button>
+          <button className="nav-item" style={{ fontSize: 13 }}>
+            <span style={{ display: "flex", alignItems: "center" }}>{Icons.archive}</span> Archive
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px 4px", marginTop: 8 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: "50%", background: "#E5E7EB",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 14, fontWeight: 700, color: "var(--text-secondary)",
+            }}>AM</div>
+            <div>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>Alex Mercer</p>
+              <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase" }}>Pro Plan</p>
+            </div>
+          </div>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main style={{ flex: 1, padding: "24px 28px", minHeight: "100vh", overflowY: "auto" }}>
-        <AnimatePresence mode="wait">
-          <motion.div key={showDetail ? "detail" : view} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.2 }}>
-            {showDetail && selectedApp ? (
-              <AppDetail app={selectedApp} onBack={() => { setShowDetail(false); setSelectedApp(null); }} onUpdate={updateApp} onDelete={deleteApp} />
-            ) : view === "dashboard" ? (
-              <Dashboard apps={apps} onAddClick={() => setShowAdd(true)} onAppClick={goDetail} onViewAll={() => setView("tracker")} />
-            ) : view === "tracker" ? (
-              <AppList apps={apps} onAppClick={goDetail} filter={filter} setFilter={setFilter} />
-            ) : view === "cv" ? (
-              <CVOptimizer />
-            ) : view === "interview" ? (
-              <InterviewCoach />
-            ) : view === "email" ? (
-              <ColdEmailGenerator />
-            ) : null}
-          </motion.div>
-        </AnimatePresence>
-      </main>
+      {/* ── Main Area ────────────────────────── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: "100vh", minWidth: 0 }}>
+        {/* Mobile Top Bar */}
+        <header className="mobile-top-bar">
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontWeight: 800, fontSize: 14,
+            }}>J</div>
+            <span style={{ fontWeight: 800, fontSize: 16, color: "var(--text-primary)" }}>JobTrek</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={() => setShowAdd(true)} style={{
+              width: 36, height: 36, borderRadius: "50%", background: "var(--accent)",
+              border: "none", display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: "#fff",
+            }}>
+              {Icons.plus}
+            </button>
+            <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", display: "flex", padding: 6 }}>
+              {Icons.bell}
+            </button>
+            <div style={{
+              width: 32, height: 32, borderRadius: "50%", background: "var(--accent)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontWeight: 700, fontSize: 12,
+            }}>AM</div>
+          </div>
+        </header>
+
+        {/* Desktop Top Nav */}
+        <header className="top-nav">
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 24 }}>
+            {TOP_TABS.map(tab => (
+              <button key={tab.id} onClick={() => switchView(tab.id)}
+                className={`top-nav-tab ${view === tab.id && !showDetail ? "active" : ""}`}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button style={{
+              padding: "6px 16px", borderRadius: 20, border: "1px solid var(--border)",
+              background: "transparent", fontSize: 12, fontWeight: 600,
+              color: "var(--text-primary)", cursor: "pointer", fontFamily: "var(--font)",
+            }}>Upgrade Pro</button>
+            <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", display: "flex", padding: 6 }}>{Icons.bell}</button>
+            <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", display: "flex", padding: 6 }}>{Icons.settings}</button>
+            <div style={{
+              width: 32, height: 32, borderRadius: "50%", background: "var(--accent)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer",
+            }}>AM</div>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="main-content" style={{ flex: 1, padding: "28px 32px", overflowY: "auto" }}>
+          <AnimatePresence mode="wait">
+            <motion.div key={showDetail ? "detail" : view}
+              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.2 }}>
+              {showDetail && selectedApp ? (
+                <AppDetail app={selectedApp} onBack={() => { setShowDetail(false); setSelectedApp(null); }} onUpdate={updateApp} onDelete={deleteApp} />
+              ) : view === "home" ? (
+                <Dashboard apps={apps} onAddClick={() => setShowAdd(true)} onAppClick={goDetail} onViewAll={() => setView("pipeline")} />
+              ) : view === "pipeline" ? (
+                <AppList apps={apps} onAppClick={goDetail} filter={filter} setFilter={setFilter} />
+              ) : view === "ats" ? (
+                <CVOptimizer />
+              ) : view === "coach" ? (
+                <InterviewCoach />
+              ) : view === "outreach" ? (
+                <ColdEmailGenerator />
+              ) : null}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+      </div>
+
+      {/* ── Mobile Bottom Navigation ─────────── */}
+      <nav className="mobile-bottom-nav">
+        {NAV_ITEMS.map(item => {
+          const active = view === item.id && !showDetail;
+          return (
+            <button key={item.id} onClick={() => switchView(item.id)}
+              className={active ? "active" : ""}>
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>{Icons[item.icon]}</span>
+              {item.label}
+            </button>
+          );
+        })}
+      </nav>
 
       {/* Add Modal */}
       <AnimatePresence>

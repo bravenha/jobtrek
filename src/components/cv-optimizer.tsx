@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { GlassCard, SectionHeader, LoadingSkeleton } from "@/components/ui";
+import { Card, SectionHeader, LoadingSkeleton, ScoreGauge } from "@/components/ui";
 import { MarkdownRenderer } from "@/components/markdown";
 import React, { useState, useRef } from "react";
 import { callAI } from "@/lib/utils";
@@ -34,6 +34,7 @@ export function CVOptimizer() {
   const [score, setScore] = useState<number | null>(null);
   const [fileName, setFileName] = useState("");
   const [fileLoading, setFileLoading] = useState(false);
+  const [inputMode, setInputMode] = useState<"upload" | "paste">("upload");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,7 +48,6 @@ export function CVOptimizer() {
         const text = await extractTextFromPDF(file);
         setCv(text);
       } else {
-        // .txt, .doc (plain text)
         const text = await file.text();
         setCv(text);
       }
@@ -55,10 +55,9 @@ export function CVOptimizer() {
       console.error("File read error:", err);
       setCv("");
       setFileName("");
-      alert("Gagal membaca file. Pastikan file PDF atau TXT yang valid.");
+      alert("Failed to read file. Make sure it's a valid PDF or TXT.");
     }
     setFileLoading(false);
-    // Reset the input so the same file can be re-uploaded
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -70,93 +69,112 @@ export function CVOptimizer() {
       setResult(text);
       const m = text.match(/(\d{1,3})/);
       if (m) setScore(Math.min(100, parseInt(m[1])));
-    } catch { setResult("Terjadi kesalahan. Coba lagi."); }
+    } catch { setResult("An error occurred. Please try again."); }
     setLoading(false);
   };
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      <SectionHeader icon="📄" title="CV Optimizer" subtitle="Bandingkan CV kamu dengan job description. Dapatkan skor ATS dan saran perbaikan." />
-
-      <div style={{ display: "grid", gridTemplateColumns: result ? "1fr 1fr" : "1fr", gap: 14 }}>
-        {/* Input Panel */}
+      {/* Header */}
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, gap: 12 }}>
         <div>
-          <GlassCard style={{ marginBottom: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <label className="label-text" style={{ margin: 0 }}>📋 Teks CV Kamu</label>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {fileName && (
-                  <span style={{ fontSize: 11, color: "var(--accent-light)", background: "rgba(13,148,136,0.1)", padding: "3px 10px", borderRadius: 12 }}>
-                    📎 {fileName}
-                  </span>
-                )}
-                <input ref={fileRef} type="file" accept=".pdf,.txt,.text" onChange={handleFile} style={{ display: "none" }} id="cv-upload" />
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  disabled={fileLoading}
-                  className="btn-accent-outline"
-                  style={{ fontSize: 11, padding: "5px 12px" }}
-                >
-                  {fileLoading ? "⟳ Membaca..." : "📂 Upload CV"}
-                </button>
+          <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>ATS Optimization Engine</h1>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            Align your resume&apos;s DNA with the target job description to bypass automated filters and reach human eyes.
+          </p>
+        </div>
+        <button className="btn-primary" onClick={analyze} disabled={loading || !cv.trim() || !jobDesc.trim()}
+          style={{ borderRadius: 8, padding: "12px 24px", fontSize: 14, flexShrink: 0 }}>
+          {loading ? "⟳ Scanning..." : "Scan & Optimize"}
+        </button>
+      </div>
+
+      <div className={result || loading ? "responsive-grid-sidebar" : ""} style={result || loading ? {} : {}}>
+        {/* Left Column - Input */}
+        <div>
+          {/* Upload/Paste Tabs */}
+          <div style={{ display: "flex", gap: 0, marginBottom: 16 }}>
+            {(["upload", "paste"] as const).map(mode => (
+              <button key={mode} onClick={() => setInputMode(mode)} style={{
+                padding: "10px 24px", fontSize: 13, fontWeight: inputMode === mode ? 700 : 500,
+                color: inputMode === mode ? "var(--accent-dark)" : "var(--text-muted)",
+                background: "transparent", border: "none", borderBottom: `2px solid ${inputMode === mode ? "var(--accent)" : "transparent"}`,
+                cursor: "pointer", fontFamily: "var(--font)", textTransform: "capitalize",
+              }}>
+                {mode === "upload" ? "Upload CV" : "Paste Text"}
+              </button>
+            ))}
+          </div>
+
+          {/* Source Document Card */}
+          <Card style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 6, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </div>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Source Document</span>
+              {fileName && (
+                <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--accent-dark)", background: "#F0FDF9", padding: "3px 10px", borderRadius: 12, fontWeight: 600 }}>
+                  📎 {fileName}
+                </span>
+              )}
             </div>
-            <textarea className="input-glass" value={cv} onChange={e => setCv(e.target.value)} rows={8}
-              placeholder="Paste seluruh isi CV kamu di sini, atau klik 'Upload CV' untuk upload file PDF/TXT..." />
-            <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--text-muted)" }}>
-              Mendukung file PDF dan TXT. Teks akan diekstrak secara otomatis.
-            </p>
-          </GlassCard>
 
-          <GlassCard style={{ marginBottom: 14 }}>
-            <label className="label-text">💼 Deskripsi Pekerjaan (Job Description)</label>
-            <textarea className="input-glass" value={jobDesc} onChange={e => setJobDesc(e.target.value)} rows={6}
-              placeholder="Paste job description dari lowongan yang kamu incar..." />
-          </GlassCard>
+            {inputMode === "upload" ? (
+              <div className="drop-zone" onClick={() => fileRef.current?.click()}>
+                <input ref={fileRef} type="file" accept=".pdf,.txt,.text" onChange={handleFile} style={{ display: "none" }} />
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+                  {fileLoading ? "Reading file..." : "Drag & drop your CV here"}
+                </p>
+                <p style={{ fontSize: 12, color: "var(--text-muted)" }}>PDF, DOCX, or TXT up to 5MB</p>
+              </div>
+            ) : (
+              <textarea className="input-field" value={cv} onChange={e => setCv(e.target.value)} rows={10}
+                placeholder="Paste your entire CV text here..." />
+            )}
+          </Card>
 
-          <button className="btn-primary" onClick={analyze} disabled={loading || !cv.trim() || !jobDesc.trim()}
-            style={{ width: "100%", padding: 14, fontSize: 15 }}>
-            {loading ? "⟳ Menganalisis..." : "🔍 Analisis CV vs Job Description"}
-          </button>
+          {/* Target Job Description */}
+          <Card>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 6, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              </div>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Target Job Description</span>
+              <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: "var(--accent-dark)", background: "#F0FDF9", padding: "3px 10px", borderRadius: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Required</span>
+            </div>
+            <textarea className="input-field" value={jobDesc} onChange={e => setJobDesc(e.target.value)} rows={6}
+              placeholder="Paste the exact job description here to calibrate the engine..." />
+          </Card>
         </div>
 
-        {/* Result Panel */}
+        {/* Right Column - Results */}
         {(result || loading) && (
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
-            {/* Score Circle */}
+            {/* Score */}
             {score !== null && (
-              <GlassCard style={{ marginBottom: 14, textAlign: "center", padding: 28 }}>
-                <div style={{ position: "relative", width: 120, height: 120, margin: "0 auto 14px" }}>
-                  <svg viewBox="0 0 120 120" style={{ transform: "rotate(-90deg)" }}>
-                    <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
-                    <motion.circle cx="60" cy="60" r="52" fill="none"
-                      stroke={score >= 70 ? "#10B981" : score >= 40 ? "#F59E0B" : "#EF4444"}
-                      strokeWidth="8" strokeLinecap="round"
-                      strokeDasharray={`${2 * Math.PI * 52}`}
-                      initial={{ strokeDashoffset: 2 * Math.PI * 52 }}
-                      animate={{ strokeDashoffset: 2 * Math.PI * 52 * (1 - score / 100) }}
-                      transition={{ duration: 1.2, ease: "easeOut" }}
-                      style={{ filter: `drop-shadow(0 0 8px ${score >= 70 ? "rgba(16,185,129,0.4)" : score >= 40 ? "rgba(245,158,11,0.4)" : "rgba(239,68,68,0.4)"})` }}
-                    />
-                  </svg>
-                  <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: 32, fontWeight: 800, color: score >= 70 ? "#10B981" : score >= 40 ? "#F59E0B" : "#EF4444" }}>{score}</span>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>/ 100</span>
-                  </div>
-                </div>
-                <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Skor Kecocokan ATS</p>
-                <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {score >= 70 ? "CV kamu sudah cukup baik! 🎉" : score >= 40 ? "Masih perlu perbaikan ⚠️" : "Perlu banyak penyesuaian ❌"}
+              <Card style={{ marginBottom: 16, padding: 24 }}>
+                <p style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Match Score</p>
+                <ScoreGauge score={score} size={140} />
+                <p style={{ textAlign: "center", fontSize: 12, color: "var(--text-secondary)", marginTop: 12, lineHeight: 1.6 }}>
+                  {score >= 70 ? "Strong match! Your CV aligns well." : score >= 40 ? "Moderate match. Some improvements needed." : "High risk of automated rejection. Major keyword gaps detected."}
                 </p>
-              </GlassCard>
+              </Card>
             )}
 
-            {/* AI Analysis */}
-            <GlassCard>
+            {/* Analysis */}
+            <Card>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-dark)" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83"/></svg>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Optimization Protocol</span>
+              </div>
               {loading ? <LoadingSkeleton lines={8} /> : (
                 <MarkdownRenderer content={result} />
               )}
-            </GlassCard>
+            </Card>
           </motion.div>
         )}
       </div>
